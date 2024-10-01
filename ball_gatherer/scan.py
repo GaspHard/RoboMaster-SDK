@@ -56,9 +56,7 @@ def scan(ep_robot):
         ep_chassis.drive_speed(x=0, y=0, z=0)  # Stop the robot
         return True
 
-    # Near-field scan
-    def near_field_scan():
-        utils.set_arm_low(ep_arm)  # Lower the robot's arm
+    def scanning():
         ep_camera.start_video_stream(display=False)
 
         angle_turned = 0
@@ -82,45 +80,21 @@ def scan(ep_robot):
 
                 # Update the angle turned
                 angle_turned += rotation_speed * 0.04  # Assuming a small time step
-                
-
         finally:
             ep_camera.stop_video_stream()
             cv2.destroyAllWindows()
 
         return False
+
+    # Near-field scan
+    def near_field_scan():
+        utils.set_arm_low(ep_arm)  # Lower the robot's arm
+        scanning()
 
     # Far-field scan
     def far_field_scan():
         utils.set_arm_high(ep_arm)  # Raise the robot's arm
-        ep_camera.start_video_stream(display=False)
-
-        angle_turned = 0
-        ep_chassis.drive_speed(x=0, y=0, z=rotation_speed)
-
-        try:
-            while angle_turned < max_rotation_angle:
-                # Capture the video frame from the camera
-                frame = ep_camera.read_cv2_image(strategy='newest')
-                frame_height, frame_width, _ = frame.shape
-
-                # Detect the red ball in the frame
-                cX = detect_ball(frame, lower_red, upper_red)
-
-                if cX is not None:
-                    # Center the ball in the camera view
-                    if center_ball(cX, frame_width):
-                        print("Red ball detected in far field, robot centered.")
-                        return True
-
-                # Update the angle turned
-                angle_turned += rotation_speed * 0.04  # Assuming a small time step
-
-        finally:
-            ep_camera.stop_video_stream()
-            cv2.destroyAllWindows()
-
-        return False
+        scanning()
     
     # Start the scan process
     if near_field_scan():
