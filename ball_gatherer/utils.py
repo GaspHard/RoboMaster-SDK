@@ -1,6 +1,7 @@
 from robomaster import robot, camera, config
 import socket
 import cv2
+import time
 
 COLOR_RANGES = {
     "yellow": ([25, 150, 150], [35, 255, 255]),  # Yellow HSV range
@@ -38,8 +39,11 @@ def set_arm_high(arm):
 def set_arm_to_grab(arm):
     arm.moveto(x=180, y=0).wait_for_completed()
 
-def camera_control(cam, arm):
+def camera_control(ep_robot):
     print("Starting camera preview...")
+    cam = ep_robot.camera
+    arm = ep_robot.robotic_arm
+    gripper = ep_robot.gripper
 
     # Start streaming from the camera
     cam.start_video_stream(display=False, resolution=camera.STREAM_540P)
@@ -69,6 +73,111 @@ def camera_control(cam, arm):
             print("Raising the arm...")
             set_arm_high(arm)  # Call the function to lower the arm
 
+        if key == ord('g'):
+            print("gripping...")
+            grab_ball(arm=arm, gripper=gripper)  # Call the function to lower the arm
+
+            # Step 5: Check the camera to see if the ball is still visible
+            for _ in range(5):  # Check a few frames to confirm
+                frame = cam.read_cv2_image(strategy='newest', timeout=1,)
+                frame = cv2.resize(frame, (960, 540))
+
+                if frame is not None:
+                    lower_color = (0, 100, 100)   # Lower HSV values for red
+                    upper_color = (10, 255, 255)  # Upper HSV values for red
+                    color_range = (lower_color, upper_color)
+
+                    # Use color detection to see if the ball is still in the frame
+                    if detect_ball_in_roi(frame, color_range):
+                        print("Ball still visible in camera feed.")
+                        print("BALL FOUND")  # Ball is still visible, grab likely failed
+                time.sleep(0.5)  # Small delay between checks
+
     # Stop the video stream and close OpenCV window
     cam.stop_video_stream()
     cv2.destroyAllWindows()
+
+
+def grab_ball(arm, gripper):
+    """
+    Grabs a ball using the gripper, and checks if the ball is successfully grabbed using resistance feedback or the camera.
+    
+    Args:
+    arm (robomaster.robotic_arm): The robotic arm object to control the gripper arm.
+    gripper (robomaster.gripper): The gripper object to grab the ball.
+    cam (robomaster.camera): The camera object to verify if the ball is grabbed.
+    
+    Returns:
+    bool: True if the ball is successfully grabbed, False otherwise.
+    """
+    # Step 2: Open the gripper before trying to grab
+    print("Opening the gripper...")
+    gripper.open(power=50)  # Adjust power as necessary
+    time.sleep(1)
+
+    # Step 3: Move the arm down to grab the ball
+    print("Moving arm to grab position...")
+    set_arm_to_grab(arm)  # Adjust these coordinates as needed
+    time.sleep(1)
+
+    # Step 4: Close the gripper to grab the ball
+    print("Closing the gripper to grab the ball...")
+    gripper.close(power=50)  # Close the gripper with 50% power
+    time.sleep(1)
+
+def detect_ball_in_roi(frame, color_range, x=456, y=378, w=586, h=347):
+    """
+    Detect if the ball is inside a specific region of interest (ROI) based on color.
+
+    Args:
+    frame (np.ndarray): The frame from the camera feed.
+    color_range (tuple): The lower and upper HSV color range for the ball.
+    x, y, w, h (int): Coordinates and dimensions of the region of interest (ROI).
+
+    Returns:
+    bool: True if the ball is detected in the ROI, False otherwise.
+    """
+    # Crop the frame to the specified ROI
+    roi_frame = frame[y:y+h, x:x+w]
+
+    # Convert the cropped ROI to the HSV color space
+    hsv_frame = cv2.cvtColor(roi_frame, cv2.COLOR_BGR2HSV)
+
+    # Apply the color mask to detect the ball in the ROI
+    lower_color, upper_color = color_range
+    mask = cv2.inRange(hsv_frame, lower_color, upper_color)
+
+    # Check if there's enough pixels of the specified color in the ROI
+    ball_detected = cv2.countNonZero(mask) > 200  # Adjust the threshold as needed
+
+    return ball_detected
+
+
+def select_roi_from_image(image_path=".\\ball_gatherer\\ball_grabbed.png"):
+    """
+    Allows the user to select a Region of Interest (ROI) in an image and returns the coordinates.
+
+    Args:
+    image_path (str): The path to the image file.
+
+    Returns:
+    tuple: The (x, y, w, h) coordinates of the selected region.
+    """
+    # Load the image
+    image = cv2.imread(image_path)
+
+    if image is None:
+        print(f"Error: Could not read the image from {image_path}")
+        return None
+
+    # Select the ROI interactively
+    roi = cv2.selectROI("Select ROI", image, showCrosshair=True, fromCenter=False)
+
+    # Close the window
+    cv2.destroyAllWindows()
+
+    # Extract ROI coordinates
+    x, y, w, h = roi
+
+    print(f"Selected ROI: x={x}, y={y}, w={w}, h={h}")
+    return roi
