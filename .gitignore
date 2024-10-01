@@ -1,5 +1,6 @@
 build
 dist
-
+.venv
 src/robomaster.egg-info
 __pycache__
+timistinkt
