@@ -5,7 +5,7 @@ from robomaster import camera
 import time
 import cv2
 import numpy as np
-from utils import get_ip_starting_with, set_arm_low, set_arm_high, set_arm_to_grab, camera_control
+from utils import get_ip_starting_with, set_arm_low, set_arm_high, set_arm_to_grab, camera_control,select_roi_from_image
 import threading
 
 # Initialize Connection
@@ -26,7 +26,8 @@ def main():
     try:
         # Robot Commands
         ep_robot.get_version()
-        camera_control(cam=cam, arm=arm)
+        set_arm_low(arm=arm)
+        camera_control(ep_robot=ep_robot)
     finally:
         # Close the connection when done
         ep_robot.close()
