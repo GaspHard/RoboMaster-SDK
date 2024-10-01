@@ -5,7 +5,8 @@ from robomaster import camera
 import time
 import cv2
 import numpy as np
-from utils import get_ip_starting_with, set_arm_low, set_arm_high, set_arm_to_grab
+from utils import get_ip_starting_with, set_arm_low, set_arm_high, set_arm_to_grab, camera_control
+import threading
 
 # Initialize Connection
 ip_prefix = '192.168.5.'
@@ -18,12 +19,14 @@ ep_robot.initialize(conn_type="sta", sn="3JKCK5C00308HQ")
 # Access the chassis and robotic arm modules
 chassis = ep_robot.chassis
 arm = ep_robot.robotic_arm
+cam = ep_robot.camera
 
 # Main function
 def main():
     try:
         # Robot Commands
         ep_robot.get_version()
+        camera_control(cam=cam, arm=arm)
     finally:
         # Close the connection when done
         ep_robot.close()

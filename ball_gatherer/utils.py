@@ -1,6 +1,6 @@
-from robomaster import config
-from robomaster import robot
+from robomaster import robot, camera, config
 import socket
+import cv2
 
 COLOR_RANGES = {
     "yellow": ([25, 150, 150], [35, 255, 255]),  # Yellow HSV range
@@ -37,3 +37,38 @@ def set_arm_high(arm):
 
 def set_arm_to_grab(arm):
     arm.moveto(x=180, y=0).wait_for_completed()
+
+def camera_control(cam, arm):
+    print("Starting camera preview...")
+
+    # Start streaming from the camera
+    cam.start_video_stream(display=False, resolution=camera.STREAM_540P)
+
+    while True:
+        # Capture frame from the camera
+        frame = cam.read_cv2_image(strategy='newest', timeout=1)
+
+        if frame is not None:
+            # Display the frame in a window
+            cv2.imshow("RoboMaster EP Camera", frame)
+
+        # Check for key presses every 1ms
+        key = cv2.waitKey(1) & 0xFF
+
+        # Exit the preview when 'q' is pressed
+        if key == ord('q'):
+            break
+        
+        # Lower the arm when 'l' is pressed
+        if key == ord('l'):
+            print("Lowering the arm...")
+            set_arm_low(arm)  # Call the function to lower the arm
+
+        # Lower the arm when 'l' is pressed
+        if key == ord('h'):
+            print("Raising the arm...")
+            set_arm_high(arm)  # Call the function to lower the arm
+
+    # Stop the video stream and close OpenCV window
+    cam.stop_video_stream()
+    cv2.destroyAllWindows()
