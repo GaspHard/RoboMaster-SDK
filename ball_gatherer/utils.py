@@ -46,7 +46,7 @@ def camera_control(ep_robot):
     gripper = ep_robot.gripper
 
     # Start streaming from the camera
-    cam.start_video_stream(display=False)#, resolution=camera.STREAM_540P)
+    cam.start_video_stream(display=False, resolution=camera.STREAM_540P)
 
     while True:
         # Capture frame from the camera
@@ -91,8 +91,9 @@ def camera_control(ep_robot):
                     upper_color = (10, 255, 255)  # Upper HSV values for red
                     color_range = (lower_color, upper_color)
 
-                    # Use color detection to see if the ball is still in the frame
-                    if detect_ball_in_roi(frame, color_range):
+                    # Use color detection to see if the ball is still in the frame 
+                    #print(detect_ball(frame=frame, crop = True, x=456, y=378, w=586, h=347)[0]) # x=456, y=378, w=586, h=347
+                    if detect_ball(frame=frame, crop = False, x=456, y=378, w=586, h=347, area_threshold=200)[0] is not None:
                         print("Ball still visible in camera feed.")
                         print("BALL FOUND")  # Ball is still visible, grab likely failed
                 time.sleep(0.5)  # Small delay between checks
@@ -192,13 +193,16 @@ def select_roi_from_image(image_path=".\\ball_gatherer\\ball_grabbed.png"):
 
 
 # Function to detect a red ball in the camera frame
-def detect_ball(ep_camera, frame=None):
-    if frame == None:
+def detect_ball(ep_camera = None, frame = None, area_threshold = 500, crop = False, x = 0, y = 0, h = 0, w = 0):
+    if frame is None:
     # Read the latest frame from the camera
         frame = ep_camera.read_cv2_image(strategy='newest')
 
     # Convert the frame to HSV
-    hsv_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    if crop:
+        hsv_frame = cv2.cvtColor(frame[y:y+h, x:x+w], cv2.COLOR_BGR2HSV)
+    else:
+        hsv_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
     # Iterate through all colors defined in COLOR_RANGES
     for color_name, (lower_color, upper_color) in COLOR_RANGES.items():
@@ -213,14 +217,19 @@ def detect_ball(ep_camera, frame=None):
         contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
         if contours:
+            # Get the largest contour
             largest_contour = max(contours, key=cv2.contourArea)
             area = cv2.contourArea(largest_contour)
-            if area > 500:  # Adjust the area threshold as needed
-                # Calculate the center of the ball
+            
+            # Check if the contour area is above the threshold
+            if area > area_threshold:
+                # Calculate the center of the ball using moments
                 M = cv2.moments(largest_contour)
                 if M["m00"] != 0:
+                    # Calculate both cX and cY coordinates
                     cX = int(M["m10"] / M["m00"])
-                    return cX, color_name
+                    cY = int(M["m01"] / M["m00"])
+                    return cX, cY, color_name
 
     # If no ball was detected, return None
-    return None, None
+    return None, None, None

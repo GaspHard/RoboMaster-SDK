@@ -27,7 +27,7 @@ def main():
     try:
         # Robot Commands
         ep_robot.get_version()
-
+        #select_roi_from_image()
         #while True:
          #   scanning(ep_robot=ep_robot)
         camera_control(ep_robot=ep_robot)
