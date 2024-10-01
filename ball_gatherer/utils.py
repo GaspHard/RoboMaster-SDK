@@ -46,7 +46,7 @@ def camera_control(ep_robot):
     gripper = ep_robot.gripper
 
     # Start streaming from the camera
-    cam.start_video_stream(display=False, resolution=camera.STREAM_540P)
+    cam.start_video_stream(display=False)#, resolution=camera.STREAM_540P)
 
     while True:
         # Capture frame from the camera
@@ -72,6 +72,10 @@ def camera_control(ep_robot):
         if key == ord('h'):
             print("Raising the arm...")
             set_arm_high(arm)  # Call the function to lower the arm
+        
+        if key == ord('o'):
+            print("Opening gripper...")
+            open_gripper(gripper=gripper)  # Call the function to lower the arm
 
         if key == ord('g'):
             print("gripping...")
@@ -124,6 +128,10 @@ def grab_ball(arm, gripper):
     print("Closing the gripper to grab the ball...")
     gripper.close(power=50)  # Close the gripper with 50% power
     time.sleep(1)
+
+def open_gripper(gripper):
+    print("Opening the gripper...")
+    gripper.open(power=50)  # Adjust power as necessary
 
 def detect_ball_in_roi(frame, color_range, x=456, y=378, w=586, h=347):
     """
@@ -184,9 +192,10 @@ def select_roi_from_image(image_path=".\\ball_gatherer\\ball_grabbed.png"):
 
 
 # Function to detect a red ball in the camera frame
-def detect_ball(ep_camera):
+def detect_ball(ep_camera, frame=None):
+    if frame == None:
     # Read the latest frame from the camera
-    frame = ep_camera.read_cv2_image(strategy='newest')
+        frame = ep_camera.read_cv2_image(strategy='newest')
 
     # Convert the frame to HSV
     hsv_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)

@@ -28,10 +28,9 @@ def main():
         # Robot Commands
         ep_robot.get_version()
 
-        while True:
-            scanning(ep_robot=ep_robot)
-        #set_arm_low(arm=arm)
-        #camera_control(ep_robot=ep_robot)
+        #while True:
+         #   scanning(ep_robot=ep_robot)
+        camera_control(ep_robot=ep_robot)
     finally:
         # Close the connection when done
         ep_robot.close()
