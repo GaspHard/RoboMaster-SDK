@@ -21,3 +21,12 @@ def get_ip_starting_with(prefix):
             return ip
     
     return None  # Return None if no matching IP address is found
+
+def set_arm_low(arm):
+    arm.moveto(x=150, y=60).wait_for_completed()
+
+def set_arm_high(arm):
+    arm.moveto(x=110, y=100).wait_for_completed()
+
+def set_arm_to_grab(arm):
+    arm.moveto(x=180, y=0).wait_for_completed()
