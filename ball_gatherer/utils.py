@@ -2,6 +2,13 @@ from robomaster import config
 from robomaster import robot
 import socket
 
+COLOR_RANGES = {
+    "yellow": ([25, 150, 150], [35, 255, 255]),  # Yellow HSV range
+    "blue": ([95, 150, 150], [110, 255, 255]),   # Blue HSV range
+    "green": ([55, 150, 150], [65, 255, 255]),   # Green HSV range
+    "red": ([0, 150, 150], [10, 255, 255])       # Red HSV range
+}
+
 def get_ip_starting_with(prefix):
     """
     Get the local IP address that starts with the given prefix.
