@@ -3,7 +3,7 @@ import time
 import cv2
 import numpy as np
 import utils
-
+from utils import detect_ball
 
 
 
@@ -24,32 +24,12 @@ def scanning(ep_robot):
 
     ep_camera.start_video_stream(display=False)
 
-    # Function to detect a red ball in the camera frame
-    def detect_ball():
-        frame = ep_camera.read_cv2_image(strategy='newest')
-        hsv_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-        mask = cv2.inRange(hsv_frame, lower_color, upper_color)
-
-        # Find contours (ball detection)
-        contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-
-        if contours:
-            largest_contour = max(contours, key=cv2.contourArea)
-            area = cv2.contourArea(largest_contour)
-            if area > 500:  # Adjust based on your needs
-                # Calculate the center of the ball
-                M = cv2.moments(largest_contour)
-                if M["m00"] != 0:
-                    cX = int(M["m10"] / M["m00"])
-                    return cX
-        return None
-
     # Function to center the ball in the camera's view by rotating
     def orient_robot(tolerance=detection_tolerance):
         while True:
             frame = ep_camera.read_cv2_image(strategy='newest')
             _, frame_width, _ = frame.shape
-            cX = detect_ball()
+            cX, color = detect_ball(ep_camera=ep_camera)
 
             center_x = frame_width // 2
             if cX is None:
@@ -74,10 +54,10 @@ def scanning(ep_robot):
     try:
         while True:
             utils.set_arm_low(ep_arm)  # Lower the robot's arm
-            while detect_ball() is None:
+            while detect_ball(ep_camera=ep_camera)[0] is None:
                 start_rotation()
             stop_rotation()
-            while detect_ball() is not None:
+            while detect_ball(ep_camera=ep_camera)[0] is not None:
                 orient_robot()
     finally:
         ep_camera.stop_video_stream()

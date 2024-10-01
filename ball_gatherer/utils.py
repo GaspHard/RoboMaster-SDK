@@ -2,13 +2,13 @@ from robomaster import robot, camera, config
 import socket
 import cv2
 import time
+import numpy as np
 
 COLOR_RANGES = {
-    "yellow": ([25, 150, 150], [35, 255, 255]),  # Yellow HSV range
     "blue": ([95, 150, 150], [110, 255, 255]),   # Blue HSV range
     "green": ([55, 150, 150], [65, 255, 255]),   # Green HSV range
-    "red": ([0, 150, 150], [10, 255, 255])       # Red HSV range
-}
+    "red": ([0, 150, 150], [10, 255, 255]),      # Red HSV range
+    "yellow": ([25, 150, 150], [35, 255, 255])} # Yellow HSV range
 
 def get_ip_starting_with(prefix):
     """
@@ -181,3 +181,37 @@ def select_roi_from_image(image_path=".\\ball_gatherer\\ball_grabbed.png"):
 
     print(f"Selected ROI: x={x}, y={y}, w={w}, h={h}")
     return roi
+
+
+# Function to detect a red ball in the camera frame
+def detect_ball(ep_camera):
+    # Read the latest frame from the camera
+    frame = ep_camera.read_cv2_image(strategy='newest')
+
+    # Convert the frame to HSV
+    hsv_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+
+    # Iterate through all colors defined in COLOR_RANGES
+    for color_name, (lower_color, upper_color) in COLOR_RANGES.items():
+        # Convert the color range to NumPy arrays
+        lower_color = np.array(lower_color)
+        upper_color = np.array(upper_color)
+
+        # Create a mask for the current color range
+        mask = cv2.inRange(hsv_frame, lower_color, upper_color)
+
+        # Find contours (ball detection)
+        contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+        if contours:
+            largest_contour = max(contours, key=cv2.contourArea)
+            area = cv2.contourArea(largest_contour)
+            if area > 500:  # Adjust the area threshold as needed
+                # Calculate the center of the ball
+                M = cv2.moments(largest_contour)
+                if M["m00"] != 0:
+                    cX = int(M["m10"] / M["m00"])
+                    return cX, color_name
+
+    # If no ball was detected, return None
+    return None, None

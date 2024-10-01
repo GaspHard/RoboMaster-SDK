@@ -7,6 +7,7 @@ import cv2
 import numpy as np
 from utils import get_ip_starting_with, set_arm_low, set_arm_high, set_arm_to_grab, camera_control,select_roi_from_image
 import threading
+from scan import scanning
 
 # Initialize Connection
 ip_prefix = '192.168.5.'
@@ -26,8 +27,11 @@ def main():
     try:
         # Robot Commands
         ep_robot.get_version()
-        set_arm_low(arm=arm)
-        camera_control(ep_robot=ep_robot)
+
+        while True:
+            scanning(ep_robot=ep_robot)
+        #set_arm_low(arm=arm)
+        #camera_control(ep_robot=ep_robot)
     finally:
         # Close the connection when done
         ep_robot.close()
