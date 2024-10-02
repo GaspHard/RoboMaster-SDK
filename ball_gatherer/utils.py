@@ -4,7 +4,7 @@ import cv2
 import time
 import numpy as np
 
-DEBUG=True
+DEBUG=False
 COLOR_RANGES = {
     "blue": ([95, 150, 150], [110, 255, 255]),   # Blue HSV range
     "green": ([55, 150, 150], [65, 255, 255]),   # Green HSV range
@@ -164,7 +164,8 @@ def detect_ball(ep_camera = None, frame = None, area_threshold = 500, crop = Fal
         # No cropping
         hsv_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
-    cv2.imshow("HSV Frame", hsv_frame)  # Show the frame or cropped frame for debugging
+    if DEBUG:
+        cv2.imshow("HSV Frame", hsv_frame)  # Show the frame or cropped frame for debugging
 
     # Iterate through all colors defined in COLOR_RANGES
     biggest_balls_per_color = []
@@ -225,6 +226,6 @@ def detect_ball(ep_camera = None, frame = None, area_threshold = 500, crop = Fal
         biggest_ball = max(biggest_balls_per_color, key=lambda x: x[3])
         if DEBUG:
             print(biggest_ball)
-        return biggest_ball
+        return biggest_ball[0:3]
     else:
         return None, None, None
