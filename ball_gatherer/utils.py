@@ -31,18 +31,21 @@ def get_ip_starting_with(prefix):
     
     return None  # Return None if no matching IP address is found
 
+def set_arm_calib(arm):
+    arm.moveto(x=74, y=57).wait_for_completed()
+
 def set_arm_low(arm):
-    arm.moveto(x=140, y=21).wait_for_completed()
+    arm.moveto(x=181, y=-19).wait_for_completed()
 
 def set_arm_high(arm):
     arm.moveto(x=110, y=100).wait_for_completed()
 
 def set_arm_to_grab(arm):
     #arm.moveto(x=185, y=-84).wait_for_completed()
-    arm.moveto(x=180, y=-90).wait_for_completed()
+    arm.moveto(x=185, y=-64).wait_for_completed()
 
 def set_arm_to_store(arm):
-    arm.moveto(x=86, y=113).wait_for_completed()
+    arm.moveto(x=98, y=148).wait_for_completed()
 
 def camera_control(ep_robot):
     print("Starting camera preview...")

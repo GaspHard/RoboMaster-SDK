@@ -78,34 +78,36 @@ def scanning(ep_robot):
                 start_rotation()
             stop()
             while detect_ball(ep_camera=ep_camera)[0] is not None:
-                if orient_robot(detection_tolerance, cX_first_true):
+                cX_cam, cY_cam, _ = detect_ball(ep_camera=ep_camera)
+                if cX_cam is None or cY_cam is None:
+                    break
+                cX_first_error = cX_first_true - cX_cam
+                cY_first_error = cY_first_true - cY_cam
+                if abs(cX_first_error) > approach_tolerance:
+                    if not orient_robot(approach_tolerance, cX_first_true):
+                        break
+                if abs(cY_first_error) > approach_tolerance:
+                    if not approach_robot(approach_tolerance, cY_first_true):
+                        break
+                if abs(cX_first_error) < approach_tolerance and abs(cY_first_error) < approach_tolerance :
+                    stop()
+                    utils.set_arm_to_grab(ep_arm)
                     cX_cam, cY_cam, _ = detect_ball(ep_camera=ep_camera)
                     if cX_cam is None or cY_cam is None:
                         break
-                    cX_first_error = cX_first_true - cX_cam
-                    cY_first_error = cY_first_true - cY_cam
-                    if abs(cX_first_error) > approach_tolerance:
-                        if not orient_robot(approach_tolerance, cX_first_true):
+                    cX_final_error = cX_final_true - cX_cam
+                    cY_final_error = cY_final_true - cY_cam
+                    if abs(cX_final_error) > approach_tolerance:
+                        if not orient_robot(approach_tolerance, cX_final_true):
                             break
-                    if abs(cY_first_error) > approach_tolerance:
-                        if not approach_robot(approach_tolerance, cY_first_true):
+                    if abs(cY_final_error) > approach_tolerance:
+                        if not approach_robot(approach_tolerance, cY_final_true):
                             break
-                    if abs(cX_first_error) < approach_tolerance and abs(cY_first_error) < approach_tolerance :
+                    if abs(cX_final_error) < approach_tolerance and abs(cY_final_error) < approach_tolerance :
                         stop()
-                        utils.set_arm_to_grab(ep_arm)
-                        cX_cam, cY_cam, _ = detect_ball(ep_camera=ep_camera)
-                        if cX_cam is None or cY_cam is None:
+                        color = utils.grab_ball(ep_arm, ep_gripper, ep_camera)
+                        if color is None:
                             break
-                        cX_final_error = cX_final_true - cX_cam
-                        cY_final_error = cY_final_true - cY_cam
-                        if abs(cX_final_error) > approach_tolerance:
-                            if not orient_robot(approach_tolerance, cX_final_true):
-                                break
-                        if abs(cY_final_error) > approach_tolerance:
-                            if not approach_robot(approach_tolerance, cY_final_true):
-                                break
-                        if abs(cX_final_error) < approach_tolerance and abs(cY_final_error) < approach_tolerance :
-                            stop()
-                            return True   
+                        return True   
     finally:
         ep_camera.stop_video_stream()
