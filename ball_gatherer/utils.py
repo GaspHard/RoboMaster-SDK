@@ -164,6 +164,7 @@ def detect_ball(ep_camera = None, frame = None, area_threshold = 500, crop = Fal
     cv2.imshow("HSV Frame", hsv_frame)  # Show the frame or cropped frame for debugging
 
     # Iterate through all colors defined in COLOR_RANGES
+    biggest_balls_per_color = []
     for color_name, (lower_color, upper_color) in COLOR_RANGES.items():
         # Convert the color range to NumPy arrays
         lower_color = np.array(lower_color)
@@ -213,9 +214,14 @@ def detect_ball(ep_camera = None, frame = None, area_threshold = 500, crop = Fal
                     cv2.circle(frame, (cX, cY), radius, (0, 255, 0), 2)
                     if DEBUG:
                         cv2.imshow("Detected Ball", frame)
-                    cv2.waitKey(1)
+                        cv2.waitKey(0)
 
-                    return cX, cY, color_name
+                    biggest_balls_per_color.append([cX, cY, color_name, area])
 
-    # If no ball was detected, return None
-    return None, None, None
+    if len(biggest_balls_per_color) > 0:
+        biggest_ball = max(biggest_balls_per_color, key=lambda x: x[3])
+        if DEBUG:
+            print(biggest_ball)
+        return biggest_ball
+    else:
+        return None, None, None
