@@ -79,31 +79,25 @@ def camera_control(ep_robot):
 
         if key == ord('g'):
             print("gripping...")
-            grab_ball(arm=arm, gripper=gripper)  # Call the function to lower the arm
 
+            # Step 2: Open the gripper before trying to grab
+            
+
+            # Step 3: Move the arm down to grab the ball
+            print("Moving arm to grab position...")
+            set_arm_to_grab(arm)  # Adjust these coordinates as needed
+            time.sleep(1)
+
+            grab_ball(arm=arm, gripper=gripper, cam=cam)  # Call the function to lower the arm
             # Step 5: Check the camera to see if the ball is still visible
-            for _ in range(5):  # Check a few frames to confirm
-                frame = cam.read_cv2_image(strategy='newest', timeout=1,)
-                frame = cv2.resize(frame, (960, 540))
-
-                if frame is not None:
-                    lower_color = (0, 100, 100)   # Lower HSV values for red
-                    upper_color = (10, 255, 255)  # Upper HSV values for red
-                    color_range = (lower_color, upper_color)
-
-                    # Use color detection to see if the ball is still in the frame 
-                    #print(detect_ball(frame=frame, crop = True, x=456, y=378, w=586, h=347)[0]) # x=456, y=378, w=586, h=347
-                    if detect_ball(frame=frame, crop = False, x=456, y=378, w=586, h=347, area_threshold=200)[0] is not None:
-                        print("Ball still visible in camera feed.")
-                        print("BALL FOUND")  # Ball is still visible, grab likely failed
-                time.sleep(0.5)  # Small delay between checks
+            
 
     # Stop the video stream and close OpenCV window
     cam.stop_video_stream()
     cv2.destroyAllWindows()
 
 
-def grab_ball(arm, gripper):
+def grab_ball(arm, gripper, cam):
     """
     Grabs a ball using the gripper, and checks if the ball is successfully grabbed using resistance feedback or the camera.
     
@@ -115,20 +109,29 @@ def grab_ball(arm, gripper):
     Returns:
     bool: True if the ball is successfully grabbed, False otherwise.
     """
-    # Step 2: Open the gripper before trying to grab
     print("Opening the gripper...")
     gripper.open(power=50)  # Adjust power as necessary
-    time.sleep(1)
-
-    # Step 3: Move the arm down to grab the ball
-    print("Moving arm to grab position...")
-    set_arm_to_grab(arm)  # Adjust these coordinates as needed
-    time.sleep(1)
-
-    # Step 4: Close the gripper to grab the ball
+    time.sleep(1.5)
     print("Closing the gripper to grab the ball...")
     gripper.close(power=50)  # Close the gripper with 50% power
-    time.sleep(1)
+
+    for _ in range(1):  # Check a few frames to confirm
+        # first frame is always wrong
+        for i in range(3):
+            frame = cam.read_cv2_image(strategy='newest')
+        time.sleep(2)
+        frame = cam.read_cv2_image(strategy='newest')
+        frame = cv2.resize(frame, (960, 540))
+
+        if frame is not None:
+            # Detect ball in grapper area 
+            color = detect_ball(frame=frame, crop = True, x=390, y=250, w=200, h=190, area_threshold=7000)[2]
+            if color is not None:
+                print(f"{color} ball grabbed successfully")
+                return color
+            else:
+                return None
+    
 
 def open_gripper(gripper):
     print("Opening the gripper...")
@@ -162,17 +165,7 @@ def detect_ball_in_roi(frame, color_range, x=456, y=378, w=586, h=347):
     return ball_detected
 
 
-def select_roi_from_image(image_path=".\\ball_gatherer\\ball_grabbed.png"):
-    """
-    Allows the user to select a Region of Interest (ROI) in an image and returns the coordinates.
-
-    Args:
-    image_path (str): The path to the image file.
-
-    Returns:
-    tuple: The (x, y, w, h) coordinates of the selected region.
-    """
-    # Load the image
+def select_roi_from_image(image_path=".\\ball_gatherer\\ball_grabbed2.png"):
     image = cv2.imread(image_path)
 
     if image is None:
@@ -182,27 +175,45 @@ def select_roi_from_image(image_path=".\\ball_gatherer\\ball_grabbed.png"):
     # Select the ROI interactively
     roi = cv2.selectROI("Select ROI", image, showCrosshair=True, fromCenter=False)
 
-    # Close the window
-    cv2.destroyAllWindows()
-
     # Extract ROI coordinates
     x, y, w, h = roi
 
+    if w == 0 or h == 0:
+        print("No ROI selected.")
+        return None
+
     print(f"Selected ROI: x={x}, y={y}, w={w}, h={h}")
+
+    # Crop the selected ROI from the image
+    cropped_image = image[y:y+h, x:x+w]
+
+    # Display the cropped image
+    cv2.imshow("Cropped Image", cropped_image)
+    cv2.waitKey(0)  # Wait for a key press to close the window
+    cv2.destroyAllWindows()
+
     return roi
 
 
 # Function to detect a red ball in the camera frame
 def detect_ball(ep_camera = None, frame = None, area_threshold = 500, crop = False, x = 0, y = 0, h = 0, w = 0):
     if frame is None:
-    # Read the latest frame from the camera
+        # Read the latest frame from the camera
         frame = ep_camera.read_cv2_image(strategy='newest')
-
-    # Convert the frame to HSV
-    if crop:
-        hsv_frame = cv2.cvtColor(frame[y:y+h, x:x+w], cv2.COLOR_BGR2HSV)
+    height, width, channels = frame.shape
+    print(f"Height {height}, width {width}, channels {channels}")
+    # Convert the frame or cropped frame to HSV
+    if crop and w > 0 and h > 0:
+        # Apply cropping
+        roi_frame = frame[y:y+h, x:x+w]
+        hsv_frame = cv2.cvtColor(roi_frame, cv2.COLOR_BGR2HSV)
+        height, width, channels = hsv_frame.shape
+        print(f"Height {height}, width {width}, channels {channels}")
     else:
+        # No cropping
         hsv_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+
+    cv2.imshow("HSV Frame", hsv_frame)  # Show the frame or cropped frame for debugging
 
     # Iterate through all colors defined in COLOR_RANGES
     for color_name, (lower_color, upper_color) in COLOR_RANGES.items():
@@ -212,6 +223,9 @@ def detect_ball(ep_camera = None, frame = None, area_threshold = 500, crop = Fal
 
         # Create a mask for the current color range
         mask = cv2.inRange(hsv_frame, lower_color, upper_color)
+        # Perform morphological operations to remove small noise in the mask
+        mask = cv2.erode(mask, None, iterations=2)
+        mask = cv2.dilate(mask, None, iterations=2)
 
         # Find contours (ball detection)
         contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
@@ -222,13 +236,35 @@ def detect_ball(ep_camera = None, frame = None, area_threshold = 500, crop = Fal
             area = cv2.contourArea(largest_contour)
             
             # Check if the contour area is above the threshold
+            print(f"area: {area}")
             if area > area_threshold:
                 # Calculate the center of the ball using moments
                 M = cv2.moments(largest_contour)
                 if M["m00"] != 0:
                     # Calculate both cX and cY coordinates
-                    cX = int(M["m10"] / M["m00"])
-                    cY = int(M["m01"] / M["m00"])
+                    #cX = int(M["m10"] / M["m00"])
+                    #cY = int(M["m01"] / M["m00"])
+
+                    # If cropped, adjust cX and cY to be relative to the full frame
+                    
+
+                    # Calculate the center and radius of the ball
+                    (cX, cY), radius = cv2.minEnclosingCircle(largest_contour)
+
+                    # Convert to integers
+                    cX = int(cX)
+                    cY = int(cY)
+                    radius = int(radius)
+
+                    if crop:
+                        cX += x
+                        cY += y
+
+                    # Draw the detected ball on the original frame for debugging
+                    cv2.circle(frame, (cX, cY), radius, (0, 255, 0), 2)
+                    cv2.imshow("Detected Ball", frame)
+                    cv2.waitKey(1)
+
                     return cX, cY, color_name
 
     # If no ball was detected, return None
