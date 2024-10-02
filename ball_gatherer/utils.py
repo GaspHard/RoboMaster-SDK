@@ -3,6 +3,7 @@ import socket
 import cv2
 import time
 import numpy as np
+import math
 
 DEBUG=False
 COLOR_RANGES = {
@@ -10,6 +11,11 @@ COLOR_RANGES = {
     "green": ([55, 150, 150], [65, 255, 255]),   # Green HSV range
     "red": ([0, 150, 150], [10, 255, 255]),      # Red HSV range
     "yellow": ([25, 150, 150], [35, 255, 255])} # Yellow HSV range
+
+# Define the HSV range of the specific shade of red to exclude
+EXCLUDED_RED_RANGE = {
+    "excluded_red": ([0, 250, 164], [0, 255, 174])  # Tighter range around [0, 255, 169]
+}
 
 def get_ip_starting_with(prefix):
     """
@@ -54,7 +60,7 @@ def camera_control(ep_robot):
     gripper = ep_robot.gripper
 
     # Start streaming from the camera
-    cam.start_video_stream(display=False, resolution=camera.STREAM_540P)
+    cam.start_video_stream(display=False, resolution=camera.STREAM_720P)#STREAM_540P)
 
     while True:
         # Capture frame from the camera
@@ -88,6 +94,11 @@ def camera_control(ep_robot):
         if key == ord('s'):
             print("store height...")
             set_arm_to_store(arm)  # Call the function to lower the arm
+
+        if key == ord('d'):
+            print("detect...")
+            detect_ball(ep_camera=cam, crop=True,x=400, w=480, y=0,h=720)
+            #detect_ball(ep_camera=cam)  # Call the function to lower the arm
 
         if key == ord('g'):
             print("gripping...")
@@ -146,6 +157,17 @@ def open_gripper(gripper):
     gripper.open(power=50)  # Adjust power as necessary
 
 
+# Function to calculate the Euclidean distance between two points
+def calculate_distance(c1, c2):
+    return math.sqrt((c2[0] - c1[0])**2 + (c2[1] - c1[1])**2)
+
+# Function to calculate the distance from the center of the frame
+def distance_from_center(cX, cY, frame_width, frame_height):
+    center_x, center_y = frame_width // 2, frame_height // 2
+    return math.sqrt((cX - center_x) ** 2 + (cY - center_y) ** 2)
+
+# Function to detect a red ball in the camera frame
+# Function to detect the largest ball of any color defined in COLOR_RANGES
 # Function to detect a red ball in the camera frame
 def detect_ball(ep_camera = None, frame = None, area_threshold = 500, crop = False, x = 0, y = 0, h = 0, w = 0):
     if frame is None:
@@ -154,7 +176,7 @@ def detect_ball(ep_camera = None, frame = None, area_threshold = 500, crop = Fal
     height, width, channels = frame.shape
     print(f"Height {height}, width {width}, channels {channels}")
     # Convert the frame or cropped frame to HSV
-    if crop and w > 0 and h > 0:
+    if crop:
         # Apply cropping
         roi_frame = frame[y:y+h, x:x+w]
         hsv_frame = cv2.cvtColor(roi_frame, cv2.COLOR_BGR2HSV)
@@ -163,8 +185,9 @@ def detect_ball(ep_camera = None, frame = None, area_threshold = 500, crop = Fal
     else:
         # No cropping
         hsv_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    cv2.imshow("HSV Frame", hsv_frame)  # Show the frame or cropped frame for debugging
 
-    if DEBUG:
+    if DEBUG and crop:
         cv2.imshow("HSV Frame", hsv_frame)  # Show the frame or cropped frame for debugging
 
     # Iterate through all colors defined in COLOR_RANGES
@@ -195,14 +218,6 @@ def detect_ball(ep_camera = None, frame = None, area_threshold = 500, crop = Fal
                 # Calculate the center of the ball using moments
                 M = cv2.moments(largest_contour)
                 if M["m00"] != 0:
-                    # Calculate both cX and cY coordinates
-                    #cX = int(M["m10"] / M["m00"])
-                    #cY = int(M["m01"] / M["m00"])
-
-                    # If cropped, adjust cX and cY to be relative to the full frame
-                    
-
-                    # Calculate the center and radius of the ball
                     (cX, cY), radius = cv2.minEnclosingCircle(largest_contour)
 
                     # Convert to integers
@@ -216,13 +231,15 @@ def detect_ball(ep_camera = None, frame = None, area_threshold = 500, crop = Fal
 
                     # Draw the detected ball on the original frame for debugging
                     cv2.circle(frame, (cX, cY), radius, (0, 255, 0), 2)
-                    if DEBUG:
-                        cv2.imshow("Detected Ball", frame)
-                        cv2.waitKey(0)
 
                     biggest_balls_per_color.append([cX, cY, color_name, area])
 
+
     if len(biggest_balls_per_color) > 0:
+        if DEBUG:
+            cv2.imshow("Detected Ball", frame)
+            cv2.waitKey(0)
+
         biggest_ball = max(biggest_balls_per_color, key=lambda x: x[3])
         if DEBUG:
             print(biggest_ball)
