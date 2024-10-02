@@ -185,7 +185,6 @@ def detect_ball(ep_camera = None, frame = None, area_threshold = 500, crop = Fal
     else:
         # No cropping
         hsv_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-    cv2.imshow("HSV Frame", hsv_frame)  # Show the frame or cropped frame for debugging
 
     if DEBUG and crop:
         cv2.imshow("HSV Frame", hsv_frame)  # Show the frame or cropped frame for debugging
