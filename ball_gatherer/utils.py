@@ -5,7 +5,7 @@ import time
 import numpy as np
 import math
 
-DEBUG=False
+DEBUG=True
 COLOR_RANGES = {
     "blue": ([95, 150, 150], [110, 255, 255]),   # Blue HSV range
     "green": ([55, 150, 150], [65, 255, 255]),   # Green HSV range
@@ -14,7 +14,9 @@ COLOR_RANGES = {
 
 # Define the HSV range of the specific shade of red to exclude
 EXCLUDED_RED_RANGE = {
-    "excluded_red": ([0, 250, 164], [0, 255, 174])  # Tighter range around [0, 255, 169]
+    #"excluded_red": ([0, 250, 164], [0, 255, 174])  # Tighter range around [0, 255, 169]
+    "excluded_red": ([0, 120, 70], [10, 255, 255]),  # Expanded range for red detection
+    "upper_red": ([170, 120, 70], [180, 255, 255])   # Upper range for red
 }
 
 def get_ip_starting_with(prefix):
@@ -170,19 +172,21 @@ def distance_from_center(cX, cY, frame_width, frame_height):
 # Function to detect a red ball in the camera frame
 # Function to detect the largest ball of any color defined in COLOR_RANGES
 # Function to detect a red ball in the camera frame
-def detect_ball(ep_camera = None, frame = None, area_threshold = 500, crop = False, x = 0, y = 0, h = 0, w = 0):
+def detect_ball(ep_camera=None, frame=None, area_threshold=500, max_area = 35000, circularity_threshold=0.7, crop=False, x=0, y=0, h=0, w=0):
     if frame is None:
         # Read the latest frame from the camera
         frame = ep_camera.read_cv2_image(strategy='newest')
+    
     height, width, channels = frame.shape
-    print(f"Height {height}, width {width}, channels {channels}")
+    print(f"Height {height}, Width {width}, Channels {channels}")
+
     # Convert the frame or cropped frame to HSV
     if crop:
         # Apply cropping
         roi_frame = frame[y:y+h, x:x+w]
         hsv_frame = cv2.cvtColor(roi_frame, cv2.COLOR_BGR2HSV)
         height, width, channels = hsv_frame.shape
-        print(f"Height {height}, width {width}, channels {channels}")
+        print(f"Height {height}, Width {width}, Channels {channels}")
     else:
         # No cropping
         hsv_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
@@ -190,8 +194,9 @@ def detect_ball(ep_camera = None, frame = None, area_threshold = 500, crop = Fal
     if DEBUG and crop:
         cv2.imshow("HSV Frame", hsv_frame)  # Show the frame or cropped frame for debugging
 
+    leftmost_ball_per_color = []
+
     # Iterate through all colors defined in COLOR_RANGES
-    biggest_balls_per_color = []
     for color_name, (lower_color, upper_color) in COLOR_RANGES.items():
         # Convert the color range to NumPy arrays
         lower_color = np.array(lower_color)
@@ -199,6 +204,7 @@ def detect_ball(ep_camera = None, frame = None, area_threshold = 500, crop = Fal
 
         # Create a mask for the current color range
         mask = cv2.inRange(hsv_frame, lower_color, upper_color)
+        
         # Perform morphological operations to remove small noise in the mask
         mask = cv2.erode(mask, None, iterations=2)
         mask = cv2.dilate(mask, None, iterations=2)
@@ -207,18 +213,29 @@ def detect_ball(ep_camera = None, frame = None, area_threshold = 500, crop = Fal
         contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
         if contours:
-            # Get the largest contour
-            largest_contour = max(contours, key=cv2.contourArea)
-            area = cv2.contourArea(largest_contour)
-            
-            # Check if the contour area is above the threshold
-            if DEBUG:
-                print(f"area: {area}")
-            if area > area_threshold:
-                # Calculate the center of the ball using moments
-                M = cv2.moments(largest_contour)
-                if M["m00"] != 0:
-                    (cX, cY), radius = cv2.minEnclosingCircle(largest_contour)
+            sorted_contours = sorted(contours, key=lambda contour: cv2.boundingRect(contour)[0])
+            for c in sorted_contours:
+                area = cv2.contourArea(c)
+                perimeter = cv2.arcLength(c, True)
+
+                if perimeter > 0:
+                    # Calculate circularity to determine roundness
+                    circularity = 4 * np.pi * (area / (perimeter ** 2))
+
+                    if DEBUG:
+                        print(f"Color: {color_name}, Area: {area}, Circularity: {circularity}")
+
+                    # Only proceed if area and circularity thresholds are met
+                    if area > area_threshold and circularity > circularity_threshold:
+                        leftmost_contour = c
+                        break
+
+            # Check if the contour meets the thresholds
+            if area > area_threshold and area < max_area and circularity > circularity_threshold:
+                approx = cv2.approxPolyDP(c, 0.02 * perimeter, True)
+                if len(approx) > 6:  # More vertices indicate round shape
+                    # Calculate the center and radius of the ball using min enclosing circle
+                    (cX, cY), radius = cv2.minEnclosingCircle(leftmost_contour)
 
                     # Convert to integers
                     cX = int(cX)
@@ -232,17 +249,20 @@ def detect_ball(ep_camera = None, frame = None, area_threshold = 500, crop = Fal
                     # Draw the detected ball on the original frame for debugging
                     cv2.circle(frame, (cX, cY), radius, (0, 255, 0), 2)
 
-                    biggest_balls_per_color.append([cX, cY, color_name, area])
+                    leftmost_ball_per_color.append([cX, cY, color_name, area])
 
+    if len(leftmost_ball_per_color) > 0:
+        if len(leftmost_ball_per_color) >= 2:
+            leftmost_ball_per_color = [ball for ball in leftmost_ball_per_color if ball[2] != "red"]
 
-    if len(biggest_balls_per_color) > 0:
         if DEBUG:
             cv2.imshow("Detected Ball", frame)
             cv2.waitKey(0)
 
-        biggest_ball = max(biggest_balls_per_color, key=lambda x: x[3])
+        # Find the leftmost ball
+        leftmost_ball = min(leftmost_ball_per_color, key=lambda x: x[0])
         if DEBUG:
-            print(biggest_ball)
-        return biggest_ball[0:3]
+            print(leftmost_ball)
+        return leftmost_ball[0:3]
     else:
         return None, None, None
