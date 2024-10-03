@@ -155,6 +155,7 @@ def grab_ball(arm, gripper, cam):
 def open_gripper(gripper):
     print("Opening the gripper...")
     gripper.open(power=50)  # Adjust power as necessary
+    time.sleep(2)
 
 
 # Function to calculate the Euclidean distance between two points

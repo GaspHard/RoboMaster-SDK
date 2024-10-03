@@ -5,8 +5,9 @@ import numpy as np
 import utils
 from utils import detect_ball
 
-
-
+def on_detect_marker(marker_info):
+        #x,y,w,h,number = marker_info
+        print(marker_info)
 
 def scanning(ep_robot):
     rotation_speed = 100
@@ -18,6 +19,7 @@ def scanning(ep_robot):
     ep_chassis = ep_robot.chassis
     ep_arm = ep_robot.robotic_arm
     ep_gripper = ep_robot.gripper
+    ep_vision = ep_robot.vision
 
     ep_camera.start_video_stream(display=False)
     frame = ep_camera.read_cv2_image(strategy='newest')
@@ -47,6 +49,16 @@ def scanning(ep_robot):
     def start_rotation():
         ep_chassis.drive_speed(x=0, y=0, z=rotation_speed)
 
+    def step_rotation():
+        ep_chassis.drive_speed(x=0, y=0, z=rotation_speed)
+        time.sleep(0.1)
+        stop()
+
+    def go_back():
+        ep_chassis.drive_speed(x=-0.2, y=0, z=0)
+        time.sleep(1)
+        stop()
+
     def approach_robot(tolerance, true_center_y):
         while True:
             _, cY, _ = detect_ball(ep_camera=ep_camera)
@@ -62,6 +74,8 @@ def scanning(ep_robot):
             else:
                 stop()
                 return True
+
+    
     
     # Start the scan and appraoch process
     try:
@@ -72,6 +86,7 @@ def scanning(ep_robot):
         cX_first_true, cY_first_true, _ = detect_ball(ep_camera=None, frame=true_first_image)
         cX_final_true, cY_final_true, _ = detect_ball(ep_camera=None, frame=true_final_image)
         while True:
+            number_found = False
             utils.set_arm_low(ep_arm)  # Lower the robot's arm
             utils.open_gripper(ep_gripper)
             while detect_ball(ep_camera=ep_camera)[0] is None:
@@ -108,6 +123,15 @@ def scanning(ep_robot):
                         color = utils.grab_ball(ep_arm, ep_gripper, ep_camera)
                         if color is None:
                             break
-                        return True   
+                        else:
+                            utils.set_arm_calib(ep_arm)
+                            go_back()
+                            while True:
+                                ep_vision.sub_detect_info(name="marker", callback=on_detect_marker)
+                                step_rotation()
+                                ep_vision.unsub_detect_info(name="marker")
+                            stop()
+                            return True
     finally:
         ep_camera.stop_video_stream()
+        ep_vision.unsub_detect_info(name="marker")
