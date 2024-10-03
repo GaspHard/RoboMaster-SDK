@@ -78,6 +78,11 @@ def scanning(ep_robot):
         time.sleep(1)
         stop()
     
+    def go_back_to_center():
+        ep_chassis.drive_speed(x=-0.3, y0=0, z=0)
+        time.sleep(3)
+        stop()
+    
     def advance(sleep_time):
         ep_chassis.drive_speed(x=0.1, y=0, z=0)
         time.sleep(sleep_time)
@@ -215,7 +220,7 @@ def scanning(ep_robot):
                             stop()
                             advance(3.5)
                             utils.open_gripper(ep_gripper)
-                            go_back()
+                            go_back_to_center()
                             break
 
     finally:
