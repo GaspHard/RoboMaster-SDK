@@ -75,11 +75,11 @@ def scanning(ep_robot):
 
     def go_back():
         ep_chassis.drive_speed(x=-0.2, y=0, z=0)
-        time.sleep(1)
+        time.sleep(2)
         stop()
     
     def go_back_to_center():
-        ep_chassis.drive_speed(x=-0.3, y0=0, z=0)
+        ep_chassis.drive_speed(x=-0.3, y=0, z=0)
         time.sleep(3)
         stop()
     

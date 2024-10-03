@@ -5,10 +5,10 @@ import time
 import numpy as np
 import math
 
-DEBUG=True
+DEBUG=False
 COLOR_RANGES = {
     "blue": ([95, 150, 150], [110, 255, 255]),   # Blue HSV range
-    "green": ([55, 150, 150], [65, 255, 255]),   # Green HSV range
+    "green": ([55, 150, 100], [65, 255, 255]),   # Green HSV range
     "red": ([0, 150, 150], [10, 255, 255]),      # Red HSV range
     "yellow": ([25, 150, 150], [35, 255, 255])} # Yellow HSV range
 
@@ -146,7 +146,7 @@ def grab_ball(arm, gripper, cam):
 
         if frame is not None:
             # Detect ball in grapper area 
-            color = detect_ball(frame=frame, crop = True, x=390, y=300, w=200, h=190, area_threshold=7000)[2]
+            color = detect_ball(frame=frame, crop = True, x=390, y=300, w=200, h=190, area_threshold_red=7000, area_threshold_rest=7000)[2]
             if color is not None:
                 print(f"{color} ball grabbed successfully")
                 return color
@@ -172,13 +172,13 @@ def distance_from_center(cX, cY, frame_width, frame_height):
 # Function to detect a red ball in the camera frame
 # Function to detect the largest ball of any color defined in COLOR_RANGES
 # Function to detect a red ball in the camera frame
-def detect_ball(ep_camera=None, frame=None, area_threshold=500, max_area = 35000, circularity_threshold=0.4, crop=False, x=0, y=0, h=0, w=0):
+def detect_ball(ep_camera=None, frame=None, area_threshold_rest=50, vertices_red = 7, vertices_rest = 4, area_threshold_red=500, max_area = 35000, circularity_threshold_red=0.5,  circularity_threshold_rest=0.15, crop=False, x=0, y=0, h=0, w=0):
     if frame is None:
         # Read the latest frame from the camera
         frame = ep_camera.read_cv2_image(strategy='newest')
     
     height, width, channels = frame.shape
-    print(f"Height {height}, Width {width}, Channels {channels}")
+    #print(f"Height {height}, Width {width}, Channels {channels}")
 
     # Convert the frame or cropped frame to HSV
     if crop:
@@ -198,6 +198,14 @@ def detect_ball(ep_camera=None, frame=None, area_threshold=500, max_area = 35000
 
     # Iterate through all colors defined in COLOR_RANGES
     for color_name, (lower_color, upper_color) in COLOR_RANGES.items():
+        if color_name == "red":
+            area_threshold = area_threshold_red
+            circularity_threshold = circularity_threshold_red
+            vertices_threshold = vertices_red
+        else:
+            area_threshold = area_threshold_rest
+            circularity_threshold = circularity_threshold_rest
+            vertices_threshold = vertices_rest
         # Convert the color range to NumPy arrays
         lower_color = np.array(lower_color)
         upper_color = np.array(upper_color)
@@ -222,8 +230,8 @@ def detect_ball(ep_camera=None, frame=None, area_threshold=500, max_area = 35000
                     # Calculate circularity to determine roundness
                     circularity = 4 * np.pi * (area / (perimeter ** 2))
 
-                    if DEBUG:
-                        print(f"Color: {color_name}, Area: {area}, Circularity: {circularity}")
+                    #if DEBUG:
+                    print(f"Color: {color_name}, Area: {area}, Circularity: {circularity}")
 
                     # Only proceed if area and circularity thresholds are met
                     if area > area_threshold and circularity > circularity_threshold:
@@ -233,7 +241,8 @@ def detect_ball(ep_camera=None, frame=None, area_threshold=500, max_area = 35000
             # Check if the contour meets the thresholds
             if area > area_threshold and area < max_area and circularity > circularity_threshold:
                 approx = cv2.approxPolyDP(c, 0.02 * perimeter, True)
-                if len(approx) > 6:  # More vertices indicate round shape
+                print(f"approximation vertices: {len(approx)}")
+                if len(approx) >= vertices_threshold:  # More vertices indicate round shape
                     # Calculate the center and radius of the ball using min enclosing circle
                     (cX, cY), radius = cv2.minEnclosingCircle(leftmost_contour)
 
@@ -261,8 +270,8 @@ def detect_ball(ep_camera=None, frame=None, area_threshold=500, max_area = 35000
 
         # Find the leftmost ball
         leftmost_ball = min(leftmost_ball_per_color, key=lambda x: x[0])
-        if DEBUG:
-            print(leftmost_ball)
+        #if DEBUG:
+        print(leftmost_ball)
         return leftmost_ball[0:3]
     else:
         return None, None, None
