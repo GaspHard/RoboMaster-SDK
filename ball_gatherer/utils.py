@@ -9,15 +9,9 @@ DEBUG=False
 COLOR_RANGES = {
     "blue": ([95, 150, 150], [110, 255, 255]),   # Blue HSV range
     "green": ([55, 150, 100], [65, 255, 255]),   # Green HSV range
-    "red": ([0, 150, 150], [10, 255, 255]),      # Red HSV range
+    "red": ([0, 150, 115], [12, 255, 255]),      # Red HSV range
     "yellow": ([25, 150, 150], [35, 255, 255])} # Yellow HSV range
 
-# Define the HSV range of the specific shade of red to exclude
-EXCLUDED_RED_RANGE = {
-    #"excluded_red": ([0, 250, 164], [0, 255, 174])  # Tighter range around [0, 255, 169]
-    "excluded_red": ([0, 120, 70], [10, 255, 255]),  # Expanded range for red detection
-    "upper_red": ([170, 120, 70], [180, 255, 255])   # Upper range for red
-}
 
 def get_ip_starting_with(prefix):
     """
@@ -96,6 +90,10 @@ def camera_control(ep_robot):
         if key == ord('s'):
             print("store height...")
             set_arm_to_store(arm)  # Call the function to lower the arm
+        
+        if key == ord('u'):
+            print("grab height...")
+            set_arm_to_grab(arm)  # Call the function to lower the arm
 
         if key == ord('d'):
             print("detect...")
@@ -172,12 +170,17 @@ def distance_from_center(cX, cY, frame_width, frame_height):
 # Function to detect a red ball in the camera frame
 # Function to detect the largest ball of any color defined in COLOR_RANGES
 # Function to detect a red ball in the camera frame
-def detect_ball(ep_camera=None, frame=None, area_threshold_rest=50, vertices_red = 7, vertices_rest = 4, area_threshold_red=500, max_area = 35000, circularity_threshold_red=0.5,  circularity_threshold_rest=0.15, crop=False, x=0, y=0, h=0, w=0):
+def detect_ball(ep_camera=None, frame=None, area_threshold_rest=50, vertices_red = 5, vertices_rest = 4, area_threshold_red=300, max_area = 35000, circularity_threshold_red=0.4,  circularity_threshold_rest=0.15, crop=False, x=0, y=0, h=0, w=0):
     if frame is None:
         # Read the latest frame from the camera
         frame = ep_camera.read_cv2_image(strategy='newest')
     
     height, width, channels = frame.shape
+    if height == 720 and width == 1280:
+        frame = apply_mask_to_image(frame=frame, mask_path="ball_gatherer\\mask_low.png")
+        print("applying mask low")
+        #cv2.imshow("masked frame", frame)
+        #cv2.waitKey(0)
     #print(f"Height {height}, Width {width}, Channels {channels}")
 
     # Convert the frame or cropped frame to HSV
@@ -275,3 +278,33 @@ def detect_ball(ep_camera=None, frame=None, area_threshold_rest=50, vertices_red
         return leftmost_ball[0:3]
     else:
         return None, None, None
+
+
+def apply_mask_to_image(image_path = None, mask_path = None, frame = None):
+    """
+    Apply a mask to the given image.
+    
+    Args:
+        image_path: Path to the image file.
+        mask_path: Path to the mask image file (black and white).
+    
+    Returns:
+        masked_image: The image with the mask applied.
+    """
+    # Load the image
+    if frame is None:
+        image = cv2.imread(image_path)
+    else:
+        image = frame
+
+    # Load the mask image (ensure it is grayscale)
+    mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
+
+    # Ensure the image and mask have the same dimensions
+    if image.shape[:2] != mask.shape[:2]:
+        mask = cv2.resize(mask, (image.shape[1], image.shape[0]))
+
+    # Apply the mask using cv2.bitwise_and()
+    masked_image = cv2.bitwise_and(image, image, mask=mask)
+    
+    return masked_image
