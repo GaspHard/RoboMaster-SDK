@@ -172,7 +172,7 @@ def distance_from_center(cX, cY, frame_width, frame_height):
 # Function to detect a red ball in the camera frame
 # Function to detect the largest ball of any color defined in COLOR_RANGES
 # Function to detect a red ball in the camera frame
-def detect_ball(ep_camera=None, frame=None, area_threshold=500, max_area = 35000, circularity_threshold=0.7, crop=False, x=0, y=0, h=0, w=0):
+def detect_ball(ep_camera=None, frame=None, area_threshold=500, max_area = 35000, circularity_threshold=0.4, crop=False, x=0, y=0, h=0, w=0):
     if frame is None:
         # Read the latest frame from the camera
         frame = ep_camera.read_cv2_image(strategy='newest')
