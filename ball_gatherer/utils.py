@@ -178,7 +178,7 @@ def detect_ball(ep_camera=None, frame=None, area_threshold_rest=50, vertices_red
     height, width, channels = frame.shape
     if height == 720 and width == 1280:
         frame = apply_mask_to_image(frame=frame, mask_path="ball_gatherer\\mask_low.png")
-        print("applying mask low")
+        #print("applying mask low")
         #cv2.imshow("masked frame", frame)
         #cv2.waitKey(0)
     #print(f"Height {height}, Width {width}, Channels {channels}")
@@ -189,7 +189,7 @@ def detect_ball(ep_camera=None, frame=None, area_threshold_rest=50, vertices_red
         roi_frame = frame[y:y+h, x:x+w]
         hsv_frame = cv2.cvtColor(roi_frame, cv2.COLOR_BGR2HSV)
         height, width, channels = hsv_frame.shape
-        print(f"Height {height}, Width {width}, Channels {channels}")
+        #print(f"Height {height}, Width {width}, Channels {channels}")
     else:
         # No cropping
         hsv_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
@@ -234,7 +234,7 @@ def detect_ball(ep_camera=None, frame=None, area_threshold_rest=50, vertices_red
                     circularity = 4 * np.pi * (area / (perimeter ** 2))
 
                     #if DEBUG:
-                    print(f"Color: {color_name}, Area: {area}, Circularity: {circularity}")
+                    #print(f"Color: {color_name}, Area: {area}, Circularity: {circularity}")
 
                     # Only proceed if area and circularity thresholds are met
                     if area > area_threshold and circularity > circularity_threshold:
@@ -244,7 +244,7 @@ def detect_ball(ep_camera=None, frame=None, area_threshold_rest=50, vertices_red
             # Check if the contour meets the thresholds
             if area > area_threshold and area < max_area and circularity > circularity_threshold:
                 approx = cv2.approxPolyDP(c, 0.02 * perimeter, True)
-                print(f"approximation vertices: {len(approx)}")
+                #print(f"approximation vertices: {len(approx)}")
                 if len(approx) >= vertices_threshold:  # More vertices indicate round shape
                     # Calculate the center and radius of the ball using min enclosing circle
                     (cX, cY), radius = cv2.minEnclosingCircle(leftmost_contour)
@@ -274,7 +274,7 @@ def detect_ball(ep_camera=None, frame=None, area_threshold_rest=50, vertices_red
         # Find the leftmost ball
         leftmost_ball = min(leftmost_ball_per_color, key=lambda x: x[0])
         #if DEBUG:
-        print(leftmost_ball)
+        #print(leftmost_ball)
         return leftmost_ball[0:3]
     else:
         return None, None, None

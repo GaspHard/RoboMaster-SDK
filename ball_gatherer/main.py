@@ -5,13 +5,13 @@ from robomaster import camera
 import time
 import cv2
 import numpy as np
-from utils import get_ip_starting_with, set_arm_low, set_arm_high, set_arm_to_grab, camera_control,select_roi_from_image
+from utils import get_ip_starting_with, set_arm_low, set_arm_high, set_arm_to_grab, camera_control
 import threading
 from scan import scanning
 
 # Initialize Connection
-ip_prefix = '192.168.5.'
-config.ROBOT_IP_STR = "192.168.5.3"
+ip_prefix = '192.168.76.'
+config.ROBOT_IP_STR = "192.168.76.3"
 config.LOCAL_IP_STR = get_ip_starting_with(ip_prefix)
 
 # Initalize Robot
@@ -29,8 +29,8 @@ def main():
         ep_robot.get_version()
         #select_roi_from_image()
         #while True:
-         #   scanning(ep_robot=ep_robot)
-        camera_control(ep_robot=ep_robot)
+        scanning(ep_robot=ep_robot)
+        #camera_control(ep_robot=ep_robot)
     finally:
         # Close the connection when done
         ep_robot.close()

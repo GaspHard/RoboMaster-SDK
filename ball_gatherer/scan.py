@@ -4,16 +4,13 @@ import cv2
 import numpy as np
 import utils
 from utils import detect_ball
+import math
 
 m_info = None
 
-def on_detect_marker(marker_info):
-        #x,y,w,h,number = marker_info
-        print(marker_info)
-
 def scanning(ep_robot):
     rotation_speed = 100
-    detection_tolerance = 20 
+    fine_tolerance = 20 
     approach_tolerance = 20
 
     # Initialize camera and chassis
@@ -31,7 +28,7 @@ def scanning(ep_robot):
         print("orienting robot")
         while True:
             center_x = frame_width // 2
-            cXrel, _ = detect_number(color, orient_or_approach=True)
+            cXrel, _, _, _ = detect_number(color, orient_or_approach=True)
             cX = cXrel*frame_width
             error_x = cX - center_x
             if abs(error_x) > tolerance:
@@ -92,22 +89,22 @@ def scanning(ep_robot):
         print("robot approaching")
         while True:
             bottom_y = frame_height
-            _, cYrel = detect_number(color, orient_or_approach=True)
+            _, cYrel, _, _ = detect_number(color, orient_or_approach=True)
             cY = cYrel*frame_width
             print("cY:", cY)
             error_y = cY - bottom_y
             if abs(error_y) > tolerance:
                 if error_y > 0:
                     print("forward")
-                    ep_chassis.drive_speed(x=-0.1, y=0, z=0)  # go forward
+                    ep_chassis.drive_speed(x=-0.3, y=0, z=0)  # go forward
                 else:
                     print("backward")
-                    ep_chassis.drive_speed(x=0.1, y=0, z=0)  # go backward
+                    ep_chassis.drive_speed(x=0.3, y=0, z=0)  # go backward
             else:
                 stop()
                 return True
 
-    def approach_robot(tolerance, true_center_y):
+    def approach_robot(tolerance, true_center_y, fine=False):
         while True:
             _, cY, _ = detect_ball(ep_camera=ep_camera)
 
@@ -116,9 +113,15 @@ def scanning(ep_robot):
             error_y = cY - true_center_y
             if abs(error_y) > tolerance:
                 if error_y > 0:
-                    ep_chassis.drive_speed(x=-0.1, y=0, z=0)  # go forward
+                    if fine:
+                        ep_chassis.drive_speed(x=-0.08, y=0, z=0)  # go forward
+                    else:
+                        ep_chassis.drive_speed(x=-0.1, y=0, z=0)
                 else:
-                    ep_chassis.drive_speed(x=0.1, y=0, z=0)  # go backward
+                    if fine:
+                        ep_chassis.drive_speed(x=0.08, y=0, z=0)  # go backward
+                    else:
+                        ep_chassis.drive_speed(x=0.1, y=0, z=0)
             else:
                 stop()
                 return True
@@ -131,7 +134,7 @@ def scanning(ep_robot):
 
     def detect_number(color, orient_or_approach=False):
         global m_info
-        print("detect_number")
+        #print("detect_number")
         color_dict = {
             "red": 1,
             "yellow": 2,
@@ -145,14 +148,49 @@ def scanning(ep_robot):
             if not orient_or_approach:
                 step_rotation()
             ep_vision.unsub_detect_info(name="marker")
-            print("m_info:", m_info)
+            #print("m_info:", m_info)
             if m_info:
                 n = len(m_info)
                 for i in range(0, n):
                     x, y, w, h, info = m_info[i]
                     if int(info) == number:
                         print(x,y)
-                        return (x,y)
+                        return (x,y,w,h)
+
+    def round_up_to_next_thousandth(value):
+        return math.ceil(value * 1000) / 1000
+
+    def average_w_h(color, window=5):
+        sum_w = 0
+        sum_h = 0
+        for i in range(0, window):
+            sum_w = sum_w + detect_number(color, orient_or_approach=True)[2]
+            sum_h = sum_h + detect_number(color, orient_or_approach=True)[3]
+        return (round_up_to_next_thousandth(sum_w/window), round_up_to_next_thousandth(sum_h/window))
+
+    
+    def drift(tolerance, color):
+        changed = False
+        best_area = 0
+        while True:
+            w, h = average_w_h(color, window=5)
+            new_area = w*h
+            print("new_area:--------------------------------------------------",new_area)
+            if new_area <= best_area:
+                if changed:
+                    stop()
+                    return True
+                changed = True
+            if changed is True:
+                ep_chassis.drive_speed(x=0, y=0.1, z=0)
+                time.sleep(0.3)
+                orient_robot_on_number(tolerance, color)
+            else:
+                ep_chassis.drive_speed(x=0, y=-0.1, z=0)
+                time.sleep(0.3)
+                orient_robot_on_number(tolerance, color)
+            if new_area > best_area:
+                best_area = new_area
                     
                     
 
@@ -200,7 +238,7 @@ def scanning(ep_robot):
                         if not orient_robot(approach_tolerance, cX_final_true):
                             break
                     if abs(cY_final_error) > approach_tolerance:
-                        if not approach_robot(approach_tolerance, cY_final_true):
+                        if not approach_robot(approach_tolerance, cY_final_true, fine=True):
                             break
                     if abs(cX_final_error) < approach_tolerance and abs(cY_final_error) < approach_tolerance :
                         stop()
@@ -210,19 +248,19 @@ def scanning(ep_robot):
                         else:
                             utils.set_arm_calib(ep_arm)
                             go_back()
-                            cXrel, cYrel = detect_number(color)
-                            cX = cXrel * frame_width
+                            detect_number(color)
                             #cY = cYrel * frame_height
                             #print(cX, cY)
                             orient_robot_on_number(approach_tolerance, color)
+                            drift(fine_tolerance, color)
                             approach_robot_on_number(approach_tolerance, color)
+                            drift(fine_tolerance, color)
                             utils.set_arm_to_store(ep_arm)
                             stop()
-                            advance(3.5)
+                            advance(4)
                             utils.open_gripper(ep_gripper)
                             go_back_to_center()
                             break
 
     finally:
         ep_camera.stop_video_stream()
-        ep_vision.unsub_detect_info(name="marker")
